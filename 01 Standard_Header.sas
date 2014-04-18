@@ -26,6 +26,7 @@ DM 'LOG;CLEAR;OUT;CLEAR';
 libname quest07 "&directory.Quest and Foundation Lab Reports\Lab data\Quest Data, 2007 - 2009";
 libname quest10 "&directory.Quest and Foundation Lab Reports\Lab data\Quest Data, 2010 - Present";
 libname avss "&directory.Chronic HCV Data Analysis\Chronic HCV SAS Files";
+libname newavss "&directory.HBV Data Analysis\HBV Match 2012\Datasets\Source Data\Morb\NonCalREDIE Cumulative\2012";
 libname foundir "&directory.Quest and Foundation Lab Reports\SAS code-datasets\old datasets";
 libname sfeftp "&directory.SF County eFTP Data";
 libname labdata "&directory.Lab Report Data Entry";

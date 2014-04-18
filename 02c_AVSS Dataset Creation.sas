@@ -1,114 +1,76 @@
-%let morbfiledate=20120702;
+%let year = 2012;
 
-data archive.avss_old_&sysdate;
-set avss.avss_old;
+data newavss;
+set newavss.noncalrediecumul;
 run;
 
-PROC IMPORT OUT= WORK.AVSS_010199_042012 
-            DATAFILE= "&directory.Chronic HCV Data Analysis\Chronic HCV SAS Files\AVSS HEP-C-CR 1-1-1999 to 4-20-2012.xlsx" 
-            DBMS=EXCEL REPLACE;
-     RANGE="HEP_C_CR_Only$"; 
-     GETNAMES=YES;
-     MIXED=NO;
-     SCANTEXT=YES;
-     USEDATE=YES;
-     SCANTIME=YES;
-RUN;
-
-data temp1 temp3;
-set AVSS_010199_042012;
-rename	xid=id
-		xdis=dis
-		xlhd=lhd
-		xdat=dat
-		xtyp=typ
-		xdob=dob
-		xage=age
-		xre=re
-		xsex=sex
-		xlna=lna
-		xfna=fna
-		xmna=mna
-		xssn=ssn
-		xctr=ctr
-		xaddr=addr
-		xcity=city
-		xctry=ctry
-		xocc=occ
-		xout=out_spp
-		xrtyp=rtyp
-		fdob=dobf
-		pdup=dup;
-year=put(xyear,$2.);
-format don ddx dth date9.;
-don=mdy(substr(xdon,1,2),substr(xdon,4,2),substr(xdon,7,2));
-ddx=mdy(substr(xddx,1,2),substr(xddx,4,2),substr(xddx,7,2));
-dth=mdy(substr(xdth,1,2),substr(xdth,4,2),substr(xdth,7,2));
-zip=input(xzip,8.);
-donf=input(fdon,8.);
-ddxf=input(fddx,8.);
-dthf=input(fdth,8.);
-darf=input(fdar,8.);
-drop year xdon xddx xdth xzip xdar xgc fdon fddx fdth fdar pxind prace psero pdfl;
+*prep newavss data and select those during 7/1/2012 and 6/30/2013;
+data newavss;
+set newavss (rename =(zip = zipchar));
+length re $2.;
+format dtcreate mmddyy9.;
+if ethnicity = 'Hispanic/Latino' then re = 'H';
+if ethnicity ^= 'Hispanic/Latino' then do;
+	if prxmatch("m/american indian|native american/oi", race) > 0 then re= 'N';	
+	if prxmatch("m/bangladesh/oi", race) > 0 then re = 'A';	
+	if prxmatch("m/cambodia/oi", race) > 0 then re = 'AB';
+	if prxmatch("m/chinese/oi", race) > 0 then re = 'AC';
+	if prxmatch("m/filip|fillip|philip|phillip/oi", race) > 0 then re = 'AF';
+	if prxmatch("m/hmong/oi", race) > 0 then re = 'A';
+	if prxmatch("m/asian india|asian-indian|asian - indian/oi", race) > 0 then race= 'AI';
+	if prxmatch("m/indones/oi", race) > 0 then re = 'A';
+	if prxmatch("m/japan/oi", race) > 0 then re = 'AJ';
+	if prxmatch("m/korea/oi", race) > 0 then re = 'AK';
+	if prxmatch("m/laot/oi", race) > 0 then re = 'AL';
+	if prxmatch("m/malay/oi", race) > 0 then re = 'A';
+	if race in ('ASIAN', 'Asian', 'OTHER ASIAN', 'ASIAN - OTHER', 'ASIAN-OTHER', 'ASIAN - OTHER/UNKNOWN','ASIAN/PACIFIC ISLANDER OTHER','ASIAN/PACIFIC ISLANDER', 'Other Asian/Pac Isl') then re = 'A';
+	if prxmatch("m/pakist/oi", race) > 0 then re = 'A';
+	if prxmatch("m/singap/oi", race) > 0 then re = 'A';
+	if prxmatch("m/taiwan/oi", race) > 0 then re = 'A';
+	if prxmatch("m/thai/oi", race) > 0 then re = 'A';
+	if prxmatch("m/viet/oi", race) > 0 then re = 'AV';
+	if prxmatch("m/black/oi", race) > 0 then re = 'B';
+	if prxmatch("m/multi/oi", race) > 0 then re = 'M';
+	if race in ('OTHER', 'Other') then re = 'O';
+	if prxmatch("m/chamorro/oi", race) > 0 then re = 'AP';
+	if prxmatch("m/fiji/oi", race) > 0 then re = 'AP';
+	if prxmatch("m/guam/oi", race) > 0 then re = 'AG';
+	if prxmatch("m/mashall/oi", race) > 0 then re = 'AP';
+	if prxmatch("m/hawaiian/oi", race) > 0 then re = 'AH';
+	if race in ('PACIFIC ISLANDER', 'OTHER PACIFIC ISLANDER', 'PACIFIC ISLANDER - OTHER', 'PACIFIC ISLANDER-OTHER', 'PACIFIC ISLANDER - OTHER/UNKNOWN',
+				'NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER') then re = 'AP';
+	if prxmatch("m/palau/oi", race) > 0 then re = 'AP';
+	if prxmatch("m/samoa/oi", race) > 0 then re = 'AS';
+	if prxmatch("m/tonga/oi", race) > 0 then re = 'AP';
+	if prxmatch("m/yape/oi", race) > 0 then re = 'AP';
+	if race in ('UNKNOWN', 'UNK', 'Unknown') then re = 'U';
+	if race in ('WHITE', 'White') then re = 'W';
+end;
+if re = '' then re = 'U';
+if xyear = . then xyear = year(dtcreate) - 2000;
+year = put(xyear, 2.);
+lna = upcase(lna);
+fna = upcase(fna);
+mna = upcase(mna);
+city = upcase(city);
+addr = upcase(addr);
+ssn = compress(ssn);
+zip = input(compress(zipchar), 8.);
+rename dtclosed = dup dtcreate = dat;
+format dth mmddyy9.;
+drop xyear zipchar;
+if dis = 'HEP-C-CR';
 run;
 
-proc sort data=temp1 (keep=id hcv pcrhcv);
-by id;
+data newavss;
+set newavss;
+if dat > mdy(6,30, &year) and dat < mdy(7,1, &year + 1);
 run;
 
-proc sort data=avss.avss_old;
-by id;
-run;
-
-data morb;
-set avss.Morb_hcv_&morbfiledate;
-zip1=input(zip,8.);
-drop zip;
-rename zip1=zip;
-run;
-
-proc sort data=morb;
-by id;
-run;
-
-data avss_data;
-merge avss.avss_old (in=a) morb (in=b);
-by id;
-if b and not a;
-run;
-
-proc sort data=avss_data;
-by id;
-run;
-
-data avss_combined look;
-merge avss_data (in=a) temp1 (in=b);
-by id;
-if b and not a then output look;
-else output avss_combined;
-run;
-
-proc sort data=look (keep=id);
-by id;
-run;
-
-proc sort data=temp3;
-by id;
-run;
-
-data look_data;
-merge temp3 look (in=a);
-by id;
-if a;
+data avss.avss_final04112014;
+set newavss;
 run;
 
 data avss_final;
-set avss_combined look_data;
-if strip(year) ='9' then year='09';
-if strip(year) ='.' then year='';
-run;
-
-/* This code has not yet been tested - please see Erin Murray if you get an error message for trouble shooting assistance - DELETE this comment after 
-	the first time this code is run successfully*/
-proc append base=avss.avss_old data=avss_final;
+set newavss;
 run;

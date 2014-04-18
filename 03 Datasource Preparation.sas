@@ -96,7 +96,7 @@ data set003;
 * Create size and type of new variables that will be calculated;
 	informat date_of_birth date_of_onset date_of_diagnosis date_of_death episode_date_2 episode_date_1 episode_date_3 MMDDYY10. 
 		data_source $22. mmwr_year 6.0 race_ethnicity $35. census_tract $10. patient_address $50. 
-	reporter_type $9. ssn 9. account_name $40. account_address $80. account_city $22. account_zip_code 8. result_name $36. result_value $20.;
+	reporter_type $9. ssn 9. result_name $36. result_value $20.;
 
 * Identify data source;
 	data_source = "AVSS";
@@ -122,17 +122,16 @@ episode_date_3=dup;
 
 	* Standardize two vaiables;
 	race_ethnicity = put(re,$raceeth.);
-	reporter_type = put(rtyp,$rtype.);
 
 	* Strip dots/periods out of census track values;
 	census_tract = tranwrd (census_tract,'.','');
 
 	* Standardize occupation information;
-	occ = propcase (occ);
-	occ = tranwrd (occ,'-',' ');
-	occ = tranwrd (occ,'/',' ');
-	if index (occ,'Unempl') > 0 then occ = "Unemployed";
-	occ = put(strip(occ),$occup.); 
+	occupation = propcase (occupation);
+	occupation = tranwrd (occupation,'-',' ');
+	occupation = tranwrd (occupation,'/',' ');
+	if index (occupation,'Unempl') > 0 then occupation = "Unemployed";
+	occupation = put(strip(occupation),$occup.); 
 	
 	* Clean ssn information - make unknown values blank, remove blanks and dashes, translate into numeric 
 			(use compress function to keep only digits); 
@@ -159,13 +158,11 @@ episode_date_3=dup;
 		ID = patient_id
 		DIS = diagnosis
 		LHD = local_health_juris
-		occ = occupation
 		city = patient_city
 		zip = patient_zip_code;
 
 	* Drop unneeded variables;
-	drop age year re ctry dar out_spp dobf donf ddxf dthf darf ctr addr source xyear xnoc hcv pcrhcv
-		typ rtyp noc ssn1 dob don ddx dth td dat dup donmth donday donyr donfmth donfday donfyr dthfmth dthfday dthfyr;
+	drop age year re  ctr addr pcrhcv rtyp ssn1 dob don ddx dth td dat dup;
 
 	run;
 
@@ -321,7 +318,7 @@ account_address = upcase(LOC_address);
 if missing(account_address) & anydigit(substr(rs_primarylocation,1,1)) = 1 
 	then account_address = upcase(rs_primarylocation);
 account_city = upcase(loc_CITY);
-account_zip_code = put(substr(loc_zip,1,5),8.);
+account_zip_code = loc_zip;
 
 * Extract date part;
 date_of_birth=datepart(dob); 
@@ -363,7 +360,7 @@ drop age Apartment Cellular_Phone___Pager CENSUSBLOCK CLUSTERID CMRNUMBER County
 	ReportedBy LOC_: RS_: RSNAME ssn1 STATE SubmitterName TransmissionStatus WORKPHONE ZipCode id;
 
 * Create result_name and result_value variables using laboratory information available in CalREDIE;
-cutoff=input(strip(compress(HEPCLABCRDXTSTANTIHCVCUTRATIO,'>=!/:<`','a')),8.);
+cutoff=input(strip(compress(HEPCLABCRDXTSTANTIHCVCUTRATIO,'>=!;/:<`','a')),8.);
 if cutoff>100 then cutoff=.;
 format result_name $36. result_value $20. result_comment $200.;
 if HEPCLABCRDXTSTHCVRNARSLT='POS' then do;
@@ -393,3 +390,78 @@ HEPCLABCRDXTSTOTHHBSAGRSLT HEPCLABCRDXTSTOTHANTIHBCRSLT HEPCLABCRDXTSTOTHANTIHBC
 HEPCLABCRDXTSTOTHANTIHBSRSLT DXLVRENZLEVALTSGOTRSLT DXLVRENZLEVALTSGOTUPPER DXLVRENZLEVALTSGPTRSLT 
 DXLVRENZLEVALTSGPTUPPER;
 run;
+
+
+* New EpiInfo data;
+data set007;
+set epiinfo (rename=(ssn=ssn1 occupation=occupation1));
+
+*rename existing variable;
+rename	firstname=first_name
+ 		lastname=last_name
+		gender=sex
+		dob=date_of_birth
+		dtonset=date_of_onset
+		dtdiag=date_of_diagnosis
+		dtdeath=date_of_death
+		facility=account_name
+		faddress=account_address
+		fcity=account_city
+		provider=ordering_doctor
+		drec=episode_date_1
+		dsubmit=episode_date_2
+		lhj=local_health_juris
+		address=patient_address
+		city=patient_city;
+
+* Create size and type of new variables that will be calculated;
+format middle_name $20. ssn 9. race_ethnicity $35. occupation $25. mmwr_year 6. account_zip_code 8. patient_zip_code 8. laboratory $50. diagnosis $20.
+	diagnosis2 8. episode_date_3 mmddyy10. episode_date_4 mmddyy10. collection_date mmddyy10. result_date mmddyy10. reporter_type $9. prison $1.
+	test_name $45. result_name $36. order_name $41. result_value $20. result_comment $200. patient_id $22. data_source $30. census_tract $10.;
+	
+informat middle_name $20. ssn 9. race_ethnicity $35. occupation $25. mmwr_year 6. account_zip_code 8. patient_zip_code 8. laboratory $50. diagnosis $20.
+	diagnosis2 8. episode_date_3 mmddyy10. episode_date_4 mmddyy10. collection_date mmddyy10. result_date mmddyy10. reporter_type $9. prison $1.
+	test_name $45. result_name $36. order_name $41. result_value $20. result_comment $200. patient_id $22. data_source $30. census_tract $10.;
+
+*Exclude non-chronic hep C cases;
+if acutechron='A' then delete;
+
+ssn=put(ssn1,9.);
+
+if ethnicity='H' then race_ethnicity='Hispanic/Latino';
+else if black='Y' then race_ethnicity='Black/African-American';
+else if asian='Y' then race_ethnicity='Asian/Pacific Islander';
+else if naan='Y' then race_ethnicity='Native American/Alaskan Native';
+else if white='Y' then race_ethnicity='White';
+else if orace='Y' then race_ethnicity='Other';
+else race_ethnicity='Unknown';
+
+*What do these codes mean?;
+if occupation1='C' then occupation='CORRECTIONAL FACILITY';
+else if occupation1='F' then occupation='FOOD SERVICE';
+else if occupation1='H' then occupation='HEALTH CARE';
+else if occupation1='O' then occupation='OTHER';
+else if occupation1='S' then occupation='SCHOOL';
+if occupation1='O' or occupation1='' and occspec ne '' then occupation=occspec;
+
+patient_zip_code=put(substr(zip,1,5),8.);
+patient_zip_code=put(substr(zip,1,5),8.);
+
+if antihcv ne '' then do;
+	result_name='ANTI-HCV';
+	if antihcv='P' then result_value='POS';
+	else if antihcv='N' then result_value='NEG';
+end;
+
+if pcrhcv ne '' then do;
+	result_name='HCV PCR';
+	if pcrhcv='P' then result_value='POS';
+	else if pcrhcv='N' then result_value='NEG';
+end;
+
+data_source="EPIINFO";
+
+drop fstate acutechron disease hepc ssn1 occupation1 occspec ethnicity black asian naan white orace fzip age antihcv pcrhcv dsource edd exposure expspec
+	remarks remarks1 state zip;
+run;
+

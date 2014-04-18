@@ -1,7 +1,7 @@
 *=====================================================================;
 * Analyst     : Adam Coutts
 * Created     : March 8, 2011
-* Last Updated:	March 30, 2012 by Erin Murray
+* Last Updated:	February 24, 2014 by Erin Murray
 * Purpose     : Create a cleaned and ordered dataset of Quest lab data 
                 for use in data amalgamation and analysis;
 *=====================================================================;
@@ -13,8 +13,8 @@
 **** Current registry contains Quest data through May 2012;
 
 *set value of year for easy changeing in the future;
-%let n=2011; *year for July-December data files;
-%let m=2012; *year for January-June data files;
+%let n=2012; *year for July-December data files;
+%let m=2013; *year for January-June data files;
 
 data setquest00;
 	attrib PATIENT_FIRST_NAME length = $20. format = $20. informat = $20.;

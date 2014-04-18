@@ -22,10 +22,10 @@ set
 	patient_address patient_city patient_zip_code patient_id last_name result_date sex
 	test_name result_name order_name result_comment result_value units)
 
-	set003 (keep = account_address account_city account_name account_zip_code episode_date_3 /*AVSS data*/
-	census_tract data_source date_of_birth date_of_death date_of_diagnosis date_of_onset diagnosis 
-	local_health_juris mmwr_year occupation patient_address patient_city patient_zip_code result_name result_value
-	first_name patient_id last_name middle_name race_ethnicity episode_date_1 reporter_type sex ssn episode_date_2)
+	set003 (keep = episode_date_3 census_tract data_source date_of_birth date_of_death /*AVSS data*/
+	date_of_diagnosis date_of_onset diagnosis local_health_juris mmwr_year occupation patient_address
+	patient_city patient_zip_code result_name result_value first_name patient_id last_name middle_name
+	race_ethnicity episode_date_1 reporter_type sex ssn episode_date_2)
 
 	set004 (keep = account_address account_city account_name account_zip_code data_source date_of_birth /*SF data*/
 	local_health_juris occupation patient_city first_name patient_id last_name race_ethnicity episode_date_1 sex result_name result_value)
