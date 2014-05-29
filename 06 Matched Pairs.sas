@@ -11,8 +11,8 @@ Last Updated:	December 12, 2012 by Erin Murray
 data setx11 (index = (id first_name last_name zip date_of_birth ssn));
 	informat zip $5.;
 	* Just keep certain variables;
-	set set101 (keep = first_name last_name ssn date_of_birth sex patient_zip_code race_ethnicity
-		account_zip_code local_health_juris id prison middle_name) mainfldr.Main01_forfuturededup;
+	set set101
+	    mainfldr.Main02;
 	* Create a single zip code for georgraphical location comparisons - take patient zip first, account zip
 			if patient is not available;
 	if patient_zip_code > 0 then zip = strip(put(patient_zip_code,8.));
@@ -37,6 +37,7 @@ data setx11 (index = (id first_name last_name zip date_of_birth ssn));
 *	where substr(last_name,1,1) = "Y";
 
 	drop patient_zip_code account_zip_code;
+    format ssn 10. diagnosis2 8.;
 run;
 
 
@@ -447,6 +448,7 @@ data setx11 (drop = tempname);
 	on		a.&var1. is not missing
 	and		b.&var1. is not missing
 	and		a.id < b.id
+	and     b.id > &maxid.
 	and		a.&var1. = b.&var1.
 	where	calculated score >= 21
 %mend;
@@ -465,6 +467,7 @@ proc sql;
 	%sql_blocking(last_name,setx11,1)
 	;
 	quit;
+
 
 
 proc sort data=linked_pairs; by descending score; run;

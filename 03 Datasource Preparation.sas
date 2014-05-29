@@ -162,7 +162,7 @@ episode_date_3=dup;
 		zip = patient_zip_code;
 
 	* Drop unneeded variables;
-	drop age year re  ctr addr pcrhcv rtyp ssn1 dob don ddx dth td dat dup;
+	drop age year re  ctr addr pcrhcv ssn1 dob don ddx dth td dat dup;
 
 	run;
 
@@ -320,15 +320,14 @@ if missing(account_address) & anydigit(substr(rs_primarylocation,1,1)) = 1
 account_city = upcase(loc_CITY);
 account_zip_code = loc_zip;
 
-* Extract date part;
-date_of_birth=datepart(dob); 
-date_of_onset=datepart(DateOfOnset);
-date_of_diagnosis=datepart(DateOfDiagnosis);
-date_of_death=datepart(DateOfDeath);
-episode_date_1=datepart(EpisodeDate);
-episode_date_2=datepart(DateCreated);
-episode_date_3=datepart(DateReceived);
-episode_date_4=datepart(DateSubmitted);
+date_of_birth=dob; 
+date_of_onset=DateOfOnset;
+date_of_diagnosis=DateOfDiagnosis;
+date_of_death=DateOfDeath;
+episode_date_1=EpisodeDate;
+episode_date_2=DateCreated;
+episode_date_3=DateReceived;
+episode_date_4=DateSubmitted;
 
 drop dob DateOfOnset DateOfDiagnosis DateOfDeath EpisodeDate DateCreated DateReceived DateSubmitted;
 
@@ -353,7 +352,7 @@ if (notdigit(zipcode) > 5 | notdigit(strip(zipcode)) = 0) then
 * Drop unnneeded variables;
 drop age Apartment Cellular_Phone___Pager CENSUSBLOCK CLUSTERID CMRNUMBER CountyFIPS CountyOfResidence COUNTRY 
 	CountryOfBirth DISEASE DiseaseGroups DisShortName DateAdmitted DateOfArrival DateClosed DateDischarged 
-	DateofLabReport DateSent  ExpDeliveryDate ethnicity FinalDisposition HOMEPHONE 
+	DateofLabReport DateSent ethnicity FinalDisposition HOMEPHONE 
 	HOSPITAL IsIndexCase INPATIENT LATITUDE HealthJurisdiction LONGITUDE 
 	MedicalRecordNumber namesuffix OccupationLocation OccupationSettingTypeSpecify OccupationSettingType OccupationSettingTypeSpecify occupation2 
 	OutbreakNumber OUTBREAKTYPE OUTPATIENT pregnant ProcessStatus PatientDiedofthisIllness PatientHospitalized race  

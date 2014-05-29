@@ -81,10 +81,24 @@ data lnamedel (rename = (lnamedel = id));
 * This data step links together all records that are transitively related to each other
   	For an explanation as to the mechanism, see Glenn Wrights's paper, "Transitive Record 
 	Linkage in SAS using Hash Objects", WUSS San Diego 2011;
+* To ensure complete linkage, combine cartesian match results between new and old data (setx12)
+	with ids and link_ids from old data (setx12b) before the Hash procedure;
+* To ensure that link_id is assigned to the lowest id among a group of linked records, sort by id
+	and apply the first id value to the link_id value (setx13a);
 
 data setx12a;
 	set setx12 (keep = id1 id2);
 	run;
+
+data setx12b;
+set mainfldr.Main02 (keep = id link_id);
+rename id = id1 link_id = id2;
+run;
+
+data setx12a;
+set setx12a
+    setx12b;
+run;
 
 data setx13 (keep = link_id old_id);
 	length id1 id2 link_id old_id this_key dummy_key 8.;
@@ -142,18 +156,36 @@ set setx12a;
 	buffer.clear();  
 	run;
 
+proc sort data = setx13; by link_id old_id; run;
+
+data setx13a;
+set setx13;
+by link_id old_id;
+if first.link_id;
+rename old_id = link_id2;
+run;
+
+proc sort data = setx13; by link_id; run;
+proc sort data = setx13a; by link_id; run;
+
+data setx13;
+merge setx13
+      setx13a;
+by link_id;
+drop link_id;
+run;
 
 * Sort linked up dataset, main dataset, and first/last name deletion datasets for merging;
-proc sort data=setx13 (rename = (old_id = id)) nodup; by id; run;
+proc sort data=setx13 (rename = (old_id = id link_id2 = link_id)) nodup; by id; run;
 proc sort data=set101; by id; run;
-proc sort data=mainfldr.main02_formatching out=main02_formatching; by id; run;
+proc sort data=mainfldr.main02 out=main02 (drop = link_id); by id; run;
 proc sort data=fnamedel; by id; run;
 proc sort data=lnamedel; by id; run;
 
 
 * Merge those datasets, to create main dataset to find best values from;
 data setx14;
-	merge set101 setx13 main02_formatching /*sex_name (in = sex_name)*/ reversal (in = reversal)
+	merge set101 setx13 main02 /*sex_name (in = sex_name)*/ reversal (in = reversal)
 	fnamedel (in = fnamedel) lnamedel (in = lnamedel);
 	by id;
 	* Set link_id (which in the code block above found multiple records per person) for cases where 
@@ -199,6 +231,7 @@ data setx14;
 if year(firstdate)<2012 and local_health_juris='SAN DIEGO' and race_ethnicity in ('Other/Unknown Asian') then race_ethnicity='Unknown';
 run;
 
+
 * clean up LHJ variable, if possible;
 * Hierarchy for assigning LHJ: 	1) LHJ assignment from prisonch macro = current value of local_health_juris
 								2) LHJ that entered CMR data = current value of local_health_juris
@@ -226,10 +259,11 @@ data caziplhj;
 set sashelp.zipcode;
 where statecode='CA';
 city=upcase(city);
+label city = ' ';
 label zip=' ';
 if city in ('BERKELEY','LONG BEACH','PASADENA') then lhj=upcase(city);
 else lhj=upcase(countynm);
-keep zip lhj;
+keep zip lhj city;
 run;
 
 proc sort data=caziplhj; by zip; run;
@@ -254,6 +288,18 @@ if lhjassignmethod='' and lhj ne '' then do;
 	lhjassignmethod='PTCITY';
  	newlhj=lhj;
 end;
+if prison in ('M','F','O') and patient_city ne '' then do;
+	cityassignmethod='PRISON';
+	newpatient_city=patient_city;
+end;
+if cityassignmethod='' and patient_city ne '' and (index(data_source,'CalREDIE') or data_source in ('AVSS','SF eFTP','STDCB-entered CMRs')) then do;
+	cityassignmethod='CMR';
+	newpatient_city=patient_city;
+end;
+if cityassignmethod='' and patient_city ne '' then do;
+	cityassignmethod='PTCITY';
+	newpatient_city=patient_city;
+end;
 drop lhj;
 run;
 
@@ -269,7 +315,11 @@ if lhjassignmethod='' and lhj ne '' then do;
 	lhjassignmethod='PTZIP';
  	newlhj=lhj;
 end;
-drop lhj;
+if cityassignmethod = '' and city ne '' then do;
+	cityassignmethod = 'PTZIP';
+	newpatient_city = city;
+end;
+drop lhj city;
 run;
 
 proc sort data=ptzip;
@@ -283,6 +333,10 @@ if a;
 if lhjassignmethod='' and lhj ne '' then do;
 	lhjassignmethod='ACTCIT';
  	newlhj=lhj;
+end;
+if cityassignmethod = '' and account_city ne '' then do;
+	cityassignmethod = 'ACTCIT'; 
+	newpatient_city = account_city;
 end;
 drop lhj;
 run;
@@ -303,8 +357,17 @@ if local_health_juris ne '' and newlhj='' then do;
 	lhjassignmethod='DEFAUL';
 	newlhj=local_health_juris;
 end;
+if cityassignmethod = '' and city ne '' then do;
+	cityassignmethod = 'ACTZIP';
+	newpatient_city = city;
+end;
+if cityassignmethod = '' and newlhj in ('SAN FRANCISCO', 'BERKELEY', 'LONG BEACH', 'PASADENA') then do;
+	cityassignmethod = 'DEFAUL';
+	newpatient_city = newlhj;
+end;
 local_health_juris=newlhj;
-drop lhj newlhj;
+patient_city = newpatient_city;
+drop lhj newlhj city newpatient_city;
 run;
 
 
@@ -497,58 +560,25 @@ proc freq data = setx14 order = freq noprint;
 	tables race_ethnicity / out = best_race;
 	run;
 
-* Create variable in race specificity format (so, in cases of disagreement, to, for example, take 
-		"Cambodian" over "Asian", and a specific race over "Other"); 
-data best_race  (keep = link_id link_idm race_ethnicity sort_race sort_racem percent);
-	set best_race;
-	sort_race = put(race_ethnicity,$racespec.);
-	link_idm=link_id;
-	sort_racem=sort_race;
-	run;
-
-proc sort data=best_race; by link_id sort_race descending percent; run;
-
-%lookahead(dsin=best_race,dsout=racetemp1,bygroup=link_id,vars=link_idm sort_racem,lookahead=1);
-
-proc sort data=racetemp1; by link_id sort_race descending percent; run;
-
-* Take only best fit race/ethnicity information;
-data racetemp;
-	set racetemp1;
-	by link_id sort_race descending percent;
-	id_comp=lag1(link_id);
-	sort_comp=lag1(sort_race);;
-	
-	if percent > 50 then keeper=1;
-
-	else if id_comp = link_id then do;
-		if percent < 50 then keeper=-1;
-		* For values with lower race specificity, delete those and keep higher specificity;
-		else if sort_comp < sort_race then keeper=-1;
-		* Otherwise, with two conflicting race values with same level of specificity,
-				keep id to look at for potential problems;
-		else keeper=0;
-		end;
-
-	else if percent=50 and link_idm1 = link_id and sort_racem1 = sort_race then keeper=0;
-	else if percent=50 and link_idm1 = link_id and sort_racem1 > sort_race then keeper=1;
-	else if percent=50 then keeper=0;
-	else keeper=-1;
+proc sort data = best_race;
+by link_id percent;
 run;
 
-data best_race (keep = link_id race_ethnicity) RaceProb (keep = link_id);
-	set racetemp;
-	if keeper=1 then do;
-		drop keeper;
-		output best_race;
+data best_race;
+set best_race;
+by link_id;
+id_comp = lag1(link_id);
+comprace = lag1(race_ethnicity);
+comppercent = lag1(percent);
+if last.link_id then do;
+	if link_id = id_comp and percent = comppercent then do;
+	 	if race_ethnicity in ('White', 'Hispanic/Latino') and comprace in ('White', 'Hispanic/Latino') then race_ethnicity = 'Hispanic/Latino';
+	 	else race_ethnicity = 'Unknown';
 	end;
-	else if keeper=0 then do;
-		drop keeper;
-		output raceprob;
-	end;
-	else delete;
+end;
+if last.link_id;
+keep link_id race_ethnicity;
 run;
-
 
 
 * Has the person ever been in prison;
@@ -606,7 +636,6 @@ data best_dod (keep = link_id date_of_death);
 
 
 * Take date of first contact;
-* Take date of first contact;
 data date_set;
 	set setx14 (keep = link_id firstdate);
 	where firstdate ne .;
@@ -655,27 +684,52 @@ data best_lhj  (keep = link_id local_health_juris sort_lhj percent);
 	sort_lhj = local_health_juris;
 	run;
 
-proc sort data=best_lhj; by link_id sort_lhj descending percent; run;
+proc sort data=best_lhj; by link_id percent; run;
 
-* Take only best fit local health jurisdiction information;
-data best_lhj (keep = link_id local_health_juris) LHJProb (keep = link_id);
-	set best_lhj;
-	retain id_comp sort_comp;
-	
-	if ((id_comp ne link_id) and (percent > 50)) then output best_lhj;
+data best_lhj;
+set best_lhj;
+by link_id;
+id_comp = lag1(link_id);
+percent_comp = lag1(percent);
+if last.link_id then do;
+	if link_id = id_comp and percent = percent_comp then local_health_juris = '';
+end;
+if last.link_id;
+keep link_id local_health_juris;
+run;
 
-	if id_comp = link_id then do;
-		* For values with lower LHJ specificity, delete those and keep higher specificity;
-		if sort_comp < sort_lhj then delete;
-		* Otherwise, with two conflicting LHJ values with same level of specificity,
-				keep id to look at for potential problems;
-		else output LHJProb;
-		end;
-
-	id_comp = link_id;
-	sort_comp = sort_lhj;
+* Take city at time of first contact;
+data city_set;
+	set setx14 (keep = link_id firstdate patient_city  rename = (patient_city = first_city));
+	where firstdate ne . & first_city ne "";
 	run;
 
+* Sort, so that earliest date is first record for each person;
+proc sort data=city_set; by link_id firstdate; run;
+* Delete all other dates per person, only take first date and link_id;
+proc sort data=city_set (keep = link_id first_city) nodupkey; by link_id; run;
+
+* Compute most common city;
+* First, create frequencies;
+proc freq data = setx14 order = freq noprint;
+	by link_id;
+	where patient_city ^= '';
+	tables patient_city/ out = best_city;
+	run;
+
+proc sort data=best_city; by link_id percent; run;
+
+data best_city;
+set best_city;
+by link_id;
+id_comp = lag1(link_id);
+percent_comp = lag1(percent);
+if last.link_id then do;
+	if link_id = id_comp and percent = percent_comp then patient_city = '';
+end;
+if last.link_id;
+keep link_id patient_city;
+run;
 
 
 * Count number of records per link_id (i.e. how many episodes per deduplicated person-level record);
@@ -966,31 +1020,31 @@ quit;
 proc sort data = overalldx nodupkey; by link_id; run;
 
 
-
 * Merge all best values together with main set (setx14 - with values that are being replaced/standardized/optomized
 	deleted);
 data setx15;
-	merge name_sex
-		best_ssn
-		best_race
-		best_dob
-		best_dod
+	merge name_sex (rename = (sex = best_sex))
+		best_ssn (rename = (ssn = best_ssn))
+		best_race (rename = (race_ethnicity = best_race_ethnicity))
+		best_dob (rename = (date_of_birth = best_date_of_birth))
+		best_dod (rename = (date_of_death = best_date_of_death))
 		prison_ever
 		prison_firstrpt
 		transg (in = trans)
 		date_set
 		dxdate_set
 		lhj_set
+		city_set
 		best_lhj (rename=(local_health_juris=common_lhj))
-		best_fname
-		best_lname
-		best_mname
+		best_city (rename = (patient_city = common_city))
+		best_fname (rename = (first_name = best_first_name))
+		best_lname (rename = (last_name = best_last_name))
+		best_mname (rename = (middle_name = best_middle_name))
 		num_link_id
 		best_diag2
 		overalldx
 		bestdx
-		setx14 (drop = sex ssn race_ethnicity middle_name date_of_birth firstdate dxdate diagnosis2 reversal_flag
-			first_name last_name date_of_death);
+		setx14 (drop =  firstdate dxdate);
 		by link_id;
 /*	if strip(sex) in ('','U') then sex = put(first_name,$name_sex.);*/
 	if sex = '' then sex = 'U';
@@ -1017,27 +1071,25 @@ data setx15;
 
 * Sort problem cases by link_id, for merging;
 
-proc sort data=raceprob nodupkey; by link_id; run;
+
 proc sort data=ssnprob nodupkey; by link_id; run;
 proc sort data=fnameprob nodupkey; by link_id; run;
 proc sort data=mnameprob nodupkey; by link_id; run;
 proc sort data=lnameprob nodupkey; by link_id; run;
 proc sort data=dodprob nodupkey; by link_id; run;
-proc sort data=lhjprob nodupkey; by link_id; run;
+
 
 
 * Merge all "problem" datasets - create text variable that identifies what the specific incongruence is;
 data problems;
 	informat prob $30.;
-	merge raceprob (in =a) ssnprob (in=b) fnameprob (in=c) mnameprob (in = d) lnameprob (in = e) dodprob (in = f) lhjprob (in = g);
+	merge ssnprob (in=b) fnameprob (in=c) mnameprob (in = d) lnameprob (in = e) dodprob (in = f);
 	by link_id;
 	if b then prob = "ssn";
-	if a then prob = catx(", ",prob,"race");
 	if c then prob = catx(", ",prob,"first name");
 	if d then prob = catx(", ",prob,"mid init");
 	if e then prob = catx(", ",prob,"last name");
 	if f then prob = catx(", ",prob,"date of death");
-	if g then prob = catx(", ",prob,"common lhj");
 if substr(prob,1,2) = ", " then prob = substr(prob,3,(length(prob)-1));
 	run;
 

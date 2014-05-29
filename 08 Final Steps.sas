@@ -22,20 +22,15 @@ run;
 * Split data so as to create two final datasets - main01 (stem, unduplicated, person level, lower numbers) and 
 	main02 (leaf, multiple records per person, episode level, higher numbers);
 
-data main01 (keep = link_id first_name last_name middle_name ssn sex race_ethnicity date_of_birth 
-		date_of_death prison_ever prison_firstrpt records_per firstdate dxdate main_diagnosis overall_diagnosis first_lhj common_lhj age agedx firstyear dxyear)
-	main02 (keep = link_id id occupation date_of_onset date_of_diagnosis mmwr_year patient_address 
-		patient_city patient_zip_code census_tract account_name account_address account_city account_zip_code
-		local_health_juris laboratory diagnosis ordering_doctor episode_date_1 episode_date_2 episode_date_3
-		episode_date_4 collection_date result_date reporter_type prison patient_id data_source result_comment 
-		result_name result_value test_name order_name diagnosis2)
-	main01_ForFutureDedup (keep=link_id id first_name last_name middle_name ssn sex race_ethnicity date_of_birth prison_firstrpt first_lhj);
+data main01 (keep = link_id best_first_name best_last_name best_middle_name best_ssn best_sex best_race_ethnicity best_date_of_birth 
+		best_date_of_death prison_ever prison_firstrpt records_per firstdate dxdate main_diagnosis overall_diagnosis first_lhj common_lhj 
+        first_city common_city age agedx firstyear dxyear);
 	set setx15;
 	run;
 
-data mainfldr.main02_ForMatching (keep=link_id id account_address account_city account_name account_zip_code census_tract collection_date  data_source 
+data mainfldr.main02(keep=link_id id account_address account_city account_name account_zip_code census_tract collection_date  data_source 
 						date_of_birth date_of_death date_of_diagnosis date_of_onset diagnosis diagnosis2 episode_date_1 episode_date_2 episode_date_3
-						episode_date_4 first_name homeless laboratory last_name local_health_juris middle_name mmwr_year occupation order_name ordering_doctor
+						episode_date_4 first_name firstdate homeless laboratory last_name local_health_juris middle_name mmwr_year occupation order_name ordering_doctor
 						patient_address patient_city patient_id patient_zip_code prison race_ethnicity reporter_type result_comment result_date result_name
 						result_value sex ssn test_name units);
 	set setx14;
@@ -46,14 +41,14 @@ data mainfldr.main02_ForMatching (keep=link_id id account_address account_city a
 
 data template01;
 	attrib link_id length = 8. format = 8. informat = 8.;
-	attrib first_name length = $20. format = $20. informat = $20.;
-	attrib last_name length = $35. format = $35. informat = $35.;
-	attrib middle_name length = $20. format = $20. informat = $20.;
-	attrib ssn length = 8. format = 9. informat = 9.;
-	attrib sex length = $1. format = $1. informat = $1.;
-	attrib race_ethnicity length = $35. format = $35. informat = $35.;
-	attrib date_of_birth length = 8. format = MMDDYY10. informat = MMDDYY10.;
-	attrib date_of_death length = 8. format = MMDDYY10. informat = MMDDYY10.;
+	attrib best_first_name length = $20. format = $20. informat = $20.;
+	attrib best_last_name length = $35. format = $35. informat = $35.;
+	attrib best_middle_name length = $20. format = $20. informat = $20.;
+	attrib best_ssn length = 8. format = 9. informat = 9.;
+	attrib best_sex length = $1. format = $1. informat = $1.;
+	attrib best_race_ethnicity length = $35. format = $35. informat = $35.;
+	attrib best_date_of_birth length = 8. format = MMDDYY10. informat = MMDDYY10.;
+	attrib best_date_of_death length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib firstdate length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib dxdate length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib prison_ever length = $1. format = $1. informat = $1.;
@@ -61,19 +56,18 @@ data template01;
 	attrib main_diagnosis length = 8. format = 1. informat = 1.;
 	attrib overall_diagnosis length = 8. format = 1. informat = 1.;
 	attrib first_lhj length = $20. format = $20. informat = $20.;
+	attrib common_lhj length = $20. format = $20. informat = $20.;
+	attrib first_city length = $25. format = $25. informat = $25.;
+	attrib common_city length = $25. format = $25. informat = $25.;
 	attrib records_per length = 8. format = 4. informat = 4.;
 	run;
 
 data main01;
 	set template01 (in = a) main01;
 	if a then delete;
-	race_ethnicity=strip(race_ethnicity);
+	best_race_ethnicity=strip(best_race_ethnicity);
 	run;
 
-data main01_ForFutureDedup;
-	set main01_ForFutureDedup;
-	race_ethnicity=strip(race_ethnicity);
-	run;
 
 
 /*data dedup01;*/
@@ -100,6 +94,9 @@ data main01_ForFutureDedup;
 data template02;
 	attrib link_id length = 8. format = 8. informat = 8.;
 	attrib id length = 8. format = 8. informat = 8.;
+	attrib first_name length = $20. format = $20. informat = $20.;
+	attrib last_name length = $35. format = $35. informat = $35.;
+	attrib middle_name length = $20. format = $20. informat = $20.;
 	attrib data_source length = $30. format = $30. informat = $30.;	
 	attrib occupation length = $25. format = $25. informat = $25.;
 	attrib date_of_onset length = 8. format = MMDDYY10. informat = MMDDYY10.;
@@ -119,11 +116,13 @@ data template02;
 	attrib diagnosis length = $20. format = $20. informat = $20.;
 	attrib diagnosis2 length = 8. format = 1. informat = 1.;
 	attrib ordering_doctor length = $30. format = $30. informat = $30.;
+	attrib date_of_birth length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib episode_date_1 length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib episode_date_2 length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib episode_date_3 length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib episode_date_4 length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib collection_date length = 8. format = MMDDYY10. informat = MMDDYY10.;
+	attrib race_ethnicity length = $35. format = $35. informat = $35.;
 	attrib result_date length = 8. format = MMDDYY10. informat = MMDDYY10.;
 	attrib reporter_type length = $9. format = $9. informat = $9.;
 	attrib prison length = $1. format = $1. informat = $1.;
@@ -133,6 +132,8 @@ data template02;
 	attrib result_value length = $20. format = $20. informat = $20.;
 	attrib result_comment length = $200. format = $200. informat = $200.;
 	attrib patient_id length = $22. format = $22. informat = $22.;
+	attrib ssn length = 8. format = 9. informat = 9.;
+	attrib sex length = $1. format = $1. informat = $1.;
 	run;
 
 data main02 mainfldr.main02;
@@ -145,7 +146,7 @@ data main02 mainfldr.main02;
 		(last name, dob, ssn, sex), so eliminate cases who have the same values - should work the
 		same as just taking one record per link_id;
 proc sort data=main01 nodupkey; 
-	by link_id last_name first_name date_of_birth ssn sex; 
+	by link_id best_last_name best_first_name best_date_of_birth best_ssn best_sex; 
 	run;
 
 * Look for cases where deduplicating may not have worked - ie where there are more than one link_id;
@@ -159,20 +160,13 @@ data mainfldr.main01;
 set main01;
 run;
 
-proc sort data=main01_ForFutureDedup nodupkey; 
-	by link_id last_name first_name date_of_birth ssn sex; 
-	run;
-
-data mainfldr.main01_ForFutureDedup;
-set main01_ForFutureDedup;
-run;
 
 * Run descriptive statistics;
 
 * Group various asian/PIs and other/unknown for race_ethnicity variable before freqs;
 proc freq data=main01;
-	tables sex race_ethnicity prison_ever age firstyear dxyear first_lhj;
-	format race_ethnicity $raceamal. age agechart.;
+	tables best_sex best_race_ethnicity prison_ever age firstyear dxyear first_lhj;
+	format best_race_ethnicity $raceamal. age agechart.;
 	where overall_diagnosis in (1,2);
 	run;
 
@@ -182,15 +176,15 @@ proc freq data=main01;
 	run;
 
 * Create year of birth varoable, and run stats on that (with the yobs grouped using yobchart format);
-data yob (drop = date_of_birth);
-	set main01 (keep = race_ethnicity date_of_birth);
-	attrib year_of_birth length = 8. format = 8. informat = 8.;
-	yob = year (date_of_birth);	
+data yob (drop = best_date_of_birth);
+	set main01 (keep = best_race_ethnicity best_date_of_birth);
+	attrib yob length = 8. format = 8. informat = 8.;
+	yob = year (best_date_of_birth);	
 	run;
 
 proc freq data=yob;
-	tables yob yob*race_ethnicity;
-	format race_ethnicity $raceamal. yob yobchart.;
+	tables yob yob*best_race_ethnicity;
+	format best_race_ethnicity $raceamal. yob yobchart.;
 	run;
 
 * Look at episode-level dataset - number of prison-based episodes per LHJ;
@@ -201,4 +195,5 @@ proc tabulate data = main02;
 	class prison local_health_juris;
 	table prison, local_health_juris;
 	run;
+
 
